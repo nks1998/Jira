@@ -1,0 +1,180 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  moduleFormat  = "cjs"
+}
+
+/* =======================
+   ENUMS
+======================= */
+
+enum IssueType {
+  TASK
+  BUG
+  STORY
+  EPIC
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/* =======================
+   USER
+======================= */
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects  ProjectMember[]
+  assignedIssues Issue[] @relation("AssignedIssues")
+  comments  Comment[]
+}
+
+/* =======================
+   PROJECT
+======================= */
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique   // e.g. JIRA, ACME
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  members     ProjectMember[]
+  boards      Board[]
+  issues      Issue[]
+  sprints     Sprint[]
+}
+
+/* =======================
+   PROJECT MEMBERS (M:N)
+======================= */
+
+model ProjectMember {
+  id        Int     @id @default(autoincrement())
+  role      String // admin, member
+
+  userId    Int
+  projectId Int
+
+  user      User    @relation(fields: [userId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id])
+
+  @@unique([userId, projectId])
+}
+
+/* =======================
+   BOARD
+======================= */
+
+model Board {
+  id        Int      @id @default(autoincrement())
+  name      String
+  description String
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id])
+  createdAt DateTime @default(now())
+
+  columns   Column[]
+  issues    Issue[]
+}
+
+/* =======================
+   COLUMN (WORKFLOW LANE)
+======================= */
+
+model Column {
+  id        Int      @id @default(autoincrement())
+  name      String
+  order     Int      // left → right order
+  boardId   Int
+
+  board     Board    @relation(fields: [boardId], references: [id])
+  issues    Issue[]
+
+  @@unique([boardId, order])
+}
+
+/* =======================
+   ISSUE
+======================= */
+
+model Issue {
+  id          Int           @id @default(autoincrement())
+  title       String
+  description String?
+  type        IssueType
+  priority    IssuePriority
+
+  order       Int?           // top → bottom inside column
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  projectId   Int
+  boardId     Int
+  columnId    Int
+  assigneeId  Int?
+  sprintId    Int?
+
+  project     Project       @relation(fields: [projectId], references: [id])
+  board       Board         @relation(fields: [boardId], references: [id])
+  column      Column        @relation(fields: [columnId], references: [id])
+  assignee    User?         @relation("AssignedIssues", fields: [assigneeId], references: [id])
+  sprint      Sprint?       @relation("Sprint", fields: [sprintId], references: [id])
+
+  comments    Comment[]
+
+  @@index([columnId, order])
+}
+
+/* =======================
+   COMMENT
+======================= */
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+
+  issueId   Int
+  authorId  Int
+
+  issue     Issue @relation(fields: [issueId], references: [id])
+  author    User  @relation(fields: [authorId], references: [id])
+}
+
+/* =======================
+   SPRINT
+======================= */
+
+model Sprint {
+  id        Int      @id @default(autoincrement())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  isActive  Boolean @default(true)
+
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  issues    Issue[]  @relation("Sprint")
+
+  @@unique([projectId, name])
+  @@index([startDate, endDate])
+}
