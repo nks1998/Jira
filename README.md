@@ -1,6 +1,6 @@
 # Jira Clone
 
-A full-stack Jira-like project management application built with NestJS backend and a client application.
+A Jira-like project management application built with NestJS backend application.
 
 ## Project Structure
 
