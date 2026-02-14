@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -39,9 +40,7 @@ export class ProjectsService {
       where: { projectId, userId: member.id },
     });
     if (isAlreadyMember) {
-      throw new UnauthorizedException(
-        'User is already a member of the project',
-      );
+      throw new BadRequestException('User is already a member of the project');
     }
     const projectMember = await this.prisma.projectMember.create({
       data: {

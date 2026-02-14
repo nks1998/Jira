@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -26,7 +27,7 @@ export class CommentsService {
     });
 
     if (!member) {
-      throw new UnauthorizedException('User is not a member of this project');
+      throw new BadRequestException('User is not a member of this project');
     }
 
     return issue;

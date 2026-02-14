@@ -36,4 +36,8 @@ export class CreateIssueDto {
   @IsNumber()
   @IsOptional()
   assigneeId: number;
+
+  @IsNumber()
+  @IsOptional()
+  sprintId: number;
 }

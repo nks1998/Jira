@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -46,7 +47,11 @@ export class ColumnService {
 
   async createColumn(data: CreateColumnDto, userId: number) {
     await this.verifyBoardAccess(data.boardId, userId, true);
-    return this.prisma.column.create({ data });
+    const allColumns = await this.prisma.column.findMany({
+      where: { boardId: data.boardId },
+    });
+    const updatedData = { ...data, order: allColumns.length + 1 };
+    return this.prisma.column.create({ data: updatedData });
   }
 
   async updateColumn(data: UpdateColumnDto, userId: number) {
@@ -72,7 +77,7 @@ export class ColumnService {
       where: { columnId: id },
     });
     if (issues.length > 0) {
-      throw new UnauthorizedException('Column is not empty');
+      throw new BadRequestException('Column is not empty');
     }
     return this.prisma.column.delete({ where: { id } });
   }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -96,7 +97,14 @@ export class IssuesService {
 
   async findByIssueId(id: number, userId: number) {
     await this.verifyIssueAccess(id, userId);
-    return this.prisma.issue.findUnique({ where: { id } });
+    return this.prisma.issue.findUnique({
+      where: { id },
+      include: {
+        assignee: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
   }
 
   async findAllByBoardId(boardId: number, userId: number) {
@@ -107,7 +115,10 @@ export class IssuesService {
       throw new NotFoundException('Board not found');
     }
     await this.verifyProjectAccess(board.projectId, userId);
-    return this.prisma.issue.findMany({ where: { boardId } });
+    return this.prisma.issue.findMany({
+      where: { boardId },
+      include: { assignee: { select: { id: true, name: true, email: true } } },
+    });
   }
 
   async findAllByColumnId(columnId: number, userId: number) {
@@ -119,12 +130,18 @@ export class IssuesService {
       throw new NotFoundException('Column not found');
     }
     await this.verifyProjectAccess(column.board.projectId, userId);
-    return this.prisma.issue.findMany({ where: { columnId } });
+    return this.prisma.issue.findMany({
+      where: { columnId },
+      include: { assignee: true },
+    });
   }
 
   async findAllByProjectId(projectId: number, userId: number) {
     await this.verifyProjectAccess(projectId, userId);
-    return this.prisma.issue.findMany({ where: { projectId } });
+    return this.prisma.issue.findMany({
+      where: { projectId },
+      include: { assignee: { select: { id: true, name: true, email: true } } },
+    });
   }
 
   async findAllByAssigneeId(assigneeId: number, userId: number) {
@@ -155,7 +172,7 @@ export class IssuesService {
     }
 
     if (column.board.projectId !== issue.projectId) {
-      throw new UnauthorizedException(
+      throw new BadRequestException(
         'Column does not belong to the same project',
       );
     }

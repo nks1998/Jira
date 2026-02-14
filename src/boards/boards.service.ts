@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -102,7 +103,7 @@ export class BoardsService {
     });
 
     if (!member) {
-      throw new UnauthorizedException('User is not an admin of this project');
+      throw new BadRequestException('User is not an admin of this project');
     }
 
     return this.prisma.board.update({
@@ -129,7 +130,7 @@ export class BoardsService {
     });
 
     if (!member) {
-      throw new UnauthorizedException('User is not an admin of this project');
+      throw new BadRequestException('User is not an admin of this project');
     }
 
     return this.prisma.board.delete({ where: { id: boardId } });

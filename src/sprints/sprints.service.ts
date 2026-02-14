@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -10,28 +11,23 @@ import { UpdateSprintDto } from './dto/update-sprint.dto';
 @Injectable()
 export class SprintsService {
   constructor(private prisma: PrismaService) {}
-
   private async verifyProjectAccess(
     projectId: number,
     userId: number,
     requireAdmin = false,
   ) {
-    const whereClause = requireAdmin
-      ? {
-          userId_projectId: { userId, projectId },
-          role: 'admin',
-        }
-      : { userId_projectId: { userId, projectId } };
-
     const member = await this.prisma.projectMember.findUnique({
-      where: whereClause,
+      where: {
+        userId_projectId: { userId, projectId },
+      },
     });
 
     if (!member) {
-      const message = requireAdmin
-        ? 'User is not an admin of this project'
-        : 'User is not a member of this project';
-      throw new UnauthorizedException(message);
+      throw new UnauthorizedException('User is not a member of this project');
+    }
+
+    if (requireAdmin && member.role !== 'admin') {
+      throw new UnauthorizedException('User is not an admin of this project');
     }
   }
 
@@ -43,7 +39,7 @@ export class SprintsService {
         startDate: new Date(createSprintDto.startDate),
         endDate: new Date(createSprintDto.endDate),
         projectId: createSprintDto.projectId,
-        isActive: createSprintDto.isActive ?? true,
+        isActive: false,
       },
     });
   }
@@ -59,6 +55,41 @@ export class SprintsService {
       },
       orderBy: { startDate: 'desc' },
     });
+  }
+
+  async findAllByBoardId(boardId: number, userId: number) {
+    const board = await this.prisma.board.findUnique({
+      where: { id: boardId },
+    });
+    if (!board || !board.projectId) {
+      throw new NotFoundException('Board not found');
+    }
+    await this.verifyProjectAccess(board.projectId, userId);
+    return this.prisma.sprint.findMany({
+      where: { projectId: board.projectId },
+      include: {
+        _count: {
+          select: { issues: true },
+        },
+      },
+      orderBy: { startDate: 'asc' },
+    });
+  }
+
+  async findAllByQuery(query: string, userId: number) {
+    const params = new URLSearchParams(query);
+    const projectId = params.get('projectId');
+    const boardId = params.get('boardId');
+
+    if (projectId) {
+      return this.findAllByProjectId(Number(projectId), userId);
+    } else if (boardId) {
+      return this.findAllByBoardId(Number(boardId), userId);
+    } else {
+      throw new BadRequestException(
+        'Either projectId or boardId must be provided',
+      );
+    }
   }
 
   async findOne(id: number, userId: number) {
@@ -94,6 +125,21 @@ export class SprintsService {
 
     await this.verifyProjectAccess(sprint.projectId, userId, true);
 
+    if (updateSprintDto.isActive) {
+      // Deactivate any currently active sprint in the same project
+      const activeSprint = await this.prisma.sprint.findFirst({
+        where: {
+          projectId: sprint.projectId,
+          isActive: true,
+        },
+      });
+      if (activeSprint) {
+        throw new BadRequestException(
+          'Another active sprint already exists in this project',
+        );
+      }
+    }
+
     return this.prisma.sprint.update({
       where: { id },
       data: {
@@ -119,6 +165,9 @@ export class SprintsService {
     }
 
     await this.verifyProjectAccess(sprint.projectId, userId, true);
+    if (sprint.isActive) {
+      throw new BadRequestException('Cannot delete an active sprint');
+    }
     return this.prisma.sprint.delete({ where: { id } });
   }
 

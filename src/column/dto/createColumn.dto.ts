@@ -7,7 +7,4 @@ export class CreateColumnDto {
 
   @IsNotEmpty()
   boardId: number;
-
-  @IsNotEmpty()
-  order: number;
 }

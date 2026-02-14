@@ -30,14 +30,8 @@ export class SprintsController {
   }
 
   @Get()
-  findAllByProjectId(
-    @Query('projectId') projectId: string,
-    @Request() req: RequestWithUser,
-  ) {
-    return this.sprintsService.findAllByProjectId(
-      Number(projectId),
-      req.user.sub,
-    );
+  findAllByProjectId(@Query() query: string, @Request() req: RequestWithUser) {
+    return this.sprintsService.findAllByQuery(query, req.user.sub);
   }
 
   @Get(':id')
